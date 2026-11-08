@@ -105,13 +105,26 @@ function maskSVG(color, text='', premium=false, tone='#e7d1a3') {
  // Map textile luminance to the chosen color, retaining the original fabric shadows.
  const tables=rgb.map(c=>Array.from({length:101},(_,i)=>{const l=i/100;const shade=Math.min(1,Math.pow(Math.max(0,l-.015)/.155,.36));return Math.min(1,c*shade+(1-c)*Math.max(0,(l-.17)/.83)*.85).toFixed(4);}).join(' '));
  const clothFilter=color==='#252b30'?'':`filter="url(#${id}color)"`;
+ // Sample the same cloth image in garment coordinates so ink bends and shades
+ // with the photographed neck folds, rather than using an unrelated wave.
+ const printFilter=text?`<filter id="${id}print" filterUnits="userSpaceOnUse" primitiveUnits="userSpaceOnUse" x="260" y="840" width="680" height="220" color-interpolation-filters="sRGB">
+ <feImage href="${MODEL_IMAGE}" x="0" y="0" width="1254" height="1254" preserveAspectRatio="none" result="clothTexture"/>
+ <feColorMatrix in="clothTexture" type="saturate" values="0" result="clothLuminance"/>
+ <feGaussianBlur in="clothLuminance" stdDeviation="5" result="clothFolds"/>
+ <feColorMatrix in="clothFolds" type="matrix" values="1.6 0 0 0 .42  0 5.5 0 0 .1  0 0 0 0 .5  0 0 0 0 1" result="foldDisplacement"/>
+ <feDisplacementMap in="SourceGraphic" in2="foldDisplacement" scale="14" xChannelSelector="R" yChannelSelector="G" result="foldedInk"/>
+ <feComponentTransfer in="clothLuminance" result="clothLighting"><feFuncR type="linear" slope="2.6" intercept=".52"/><feFuncG type="linear" slope="2.6" intercept=".52"/><feFuncB type="linear" slope="2.6" intercept=".52"/></feComponentTransfer>
+ <feComposite in="clothLighting" in2="foldedInk" operator="in" result="inkLighting"/>
+ <feBlend in="foldedInk" in2="inkLighting" mode="multiply" result="printedInk"/>
+ <feComposite in="printedInk" in2="clothTexture" operator="in"/>
+ </filter>`:'';
  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" role="img" aria-label="FJELLTIND 套头滑雪面罩，覆盖头顶、口鼻与颈部，仅眼部开口"><defs>
  <filter id="${id}color" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncR type="table" tableValues="${tables[0]}"/><feFuncG type="table" tableValues="${tables[1]}"/><feFuncB type="table" tableValues="${tables[2]}"/></feComponentTransfer></filter>
  <filter id="${id}brand" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  -.3333 -.3333 -.3333 0 1" result="ink"/><feFlood flood-color="${premium?'#d8be86':'#e7e8e6'}"/><feComposite in2="ink" operator="in"/></filter>
- </defs>
+ ${printFilter}</defs>
  <image data-cloth="true" width="1254" height="1254" href="${MODEL_IMAGE}" ${clothFilter}/>
  <g transform="rotate(-9 840 391)"><svg x="760" y="345" width="145" height="91" viewBox="75 275 1090 680"><image width="1254" height="1254" href="${BRAND_IMAGE}" filter="url(#${id}brand)"/></svg></g>
- ${text?`<text data-inscription="true" x="566" y="949" transform="rotate(3 566 949)" text-anchor="middle" fill="${tone}" font-family="Arial, PingFang SC, Microsoft YaHei, sans-serif" font-weight="600" font-size="${Math.max(28,54-[...text].length*1.5)}" letter-spacing="3">${escapeXML(text)}</text>`:''}
+ ${text?`<g data-print="fabric" filter="url(#${id}print)"><text data-inscription="true" x="566" y="949" transform="rotate(3 566 949)" text-anchor="middle" fill="${tone}" font-family="Arial, PingFang SC, Microsoft YaHei, sans-serif" font-weight="600" font-size="${Math.max(28,54-[...text].length*1.5)}" letter-spacing="3">${escapeXML(text)}</text></g>`:''}
  </svg>`;
 }
 function escapeXML(text){return text.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));}
